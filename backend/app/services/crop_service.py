@@ -1,4 +1,5 @@
 from bson import ObjectId
+from datetime import datetime, date
 
 from backend.app.database.mongodb import (
     crop_collections,
@@ -6,7 +7,23 @@ from backend.app.database.mongodb import (
 )
 
 from backend.app.models.crop_model import create_crop_document
-from backend.app.database.mongodb import crop_collections
+
+
+# Convert Python date objects into MongoDB compatible datetime
+def convert_dates(data):
+
+    for key, value in data.items():
+
+        if isinstance(value, date):
+
+            data[key] = datetime.combine(
+                value,
+                datetime.min.time()
+            )
+
+    return data
+
+
 
 def create_crop(crop, current_user):
 
@@ -17,18 +34,30 @@ def create_crop(crop, current_user):
         }
     )
 
+
     if farm is None:
         return {
             "success": False,
             "message": "Farm not found"
         }
 
+
     crop_document = create_crop_document(
         crop,
         str(current_user["_id"])
     )
 
-    result = crop_collections.insert_one(crop_document)
+
+    # Convert dates before MongoDB insert
+    crop_document = convert_dates(
+        crop_document
+    )
+
+
+    result = crop_collections.insert_one(
+        crop_document
+    )
+
 
     return {
         "success": True,
@@ -37,16 +66,23 @@ def create_crop(crop, current_user):
     }
 
 
+
+
+
 def get_crops(current_user):
+
     crops = crop_collections.find(
         {
             "user_id": ObjectId(str(current_user["_id"]))
         }
     )
 
+
     crop_list = []
 
+
     for crop in crops:
+
         crop_list.append(
             {
                 "id": str(crop["_id"]),
@@ -54,11 +90,17 @@ def get_crops(current_user):
                 "crop_name": crop["crop_name"],
                 "crop_type": crop["crop_type"],
                 "season": crop["season"],
-                "sowing_date": crop["sowing_date"].date().isoformat(),
-                "expected_harvest_date": crop["expected_harvest_date"].date().isoformat(),
+
+                "sowing_date":
+                    crop["sowing_date"].date().isoformat(),
+
+                "expected_harvest_date":
+                    crop["expected_harvest_date"].date().isoformat(),
+
                 "status": crop["status"]
             }
         )
+
 
     return {
         "success": True,
@@ -66,7 +108,11 @@ def get_crops(current_user):
     }
 
 
+
+
+
 def get_crop_by_id(crop_id, current_user):
+
     crop = crop_collections.find_one(
         {
             "_id": ObjectId(crop_id),
@@ -74,67 +120,135 @@ def get_crop_by_id(crop_id, current_user):
         }
     )
 
+
     if crop is None:
+
         return {
-            "Success": False,
-            "message": "Crop Not Found"
-        }
-    return {
-        "success": True,
-        "crop":{
-
-            "id": str(crop["_id"]),
-            "farm_id": str(crop["farm_id"]),
-            "crop_name": crop["crop_name"],
-            "crop_type": crop["crop_type"],
-            "season": crop["season"],
-            "sowing_date": crop["sowing_date"],
-            "expected_harvest_date": crop["expected_harvest_date"],
-            "status": crop["status"]
-        }
-    }
-
-
-def update_crop(crop_id, crop, current_user):
-    result = crop_collections.update_one(
-        {
-            "_id": ObjectId(crop_id),
-            "user_id": ObjectId(str(current_user["_id"]))   
-        },
-        {
-            "$set": crop.model_dump(exclude_unset=True)
-        }
-    )
-
-    if result.matched_count == 0:
-        return{
             "success": False,
             "message": "Crop Not Found"
         }
 
+
     return {
+
         "success": True,
-        "message": "Crop Updated Successfully"
+
+        "crop": {
+
+            "id": str(crop["_id"]),
+
+            "farm_id":
+                str(crop["farm_id"]),
+
+            "crop_name":
+                crop["crop_name"],
+
+            "crop_type":
+                crop["crop_type"],
+
+            "season":
+                crop["season"],
+
+            "sowing_date":
+                crop["sowing_date"],
+
+            "expected_harvest_date":
+                crop["expected_harvest_date"],
+
+            "status":
+                crop["status"]
+        }
     }
+
+
+
+
+
+def update_crop(crop_id, crop, current_user):
+
+
+    crop_data = crop.model_dump(
+        exclude_unset=True
+    )
+
+
+    # Fix MongoDB date issue
+    crop_data = convert_dates(
+        crop_data
+    )
+
+
+    result = crop_collections.update_one(
+
+        {
+            "_id": ObjectId(crop_id),
+
+            "user_id":
+                ObjectId(str(current_user["_id"]))
+        },
+
+        {
+            "$set": crop_data
+        }
+
+    )
+
+
+    if result.matched_count == 0:
+
+        return {
+
+            "success": False,
+
+            "message": "Crop Not Found"
+
+        }
+
+
+
+    return {
+
+        "success": True,
+
+        "message": "Crop Updated Successfully"
+
+    }
+
 
 
 
 
 def delete_crop(crop_id, current_user):
+
+
     result = crop_collections.delete_one(
+
         {
             "_id": ObjectId(crop_id),
-            "user_id": current_user["_id"]
+
+            "user_id":
+                ObjectId(str(current_user["_id"]))
         }
+
     )
 
+
     if result.deleted_count == 0:
-        return{
+
+        return {
+
             "success": False,
+
             "message": "Crop Not Found"
+
         }
 
-    return{
+
+
+    return {
+
         "success": True,
+
         "message": "Crop Deleted Successfully"
+
     }

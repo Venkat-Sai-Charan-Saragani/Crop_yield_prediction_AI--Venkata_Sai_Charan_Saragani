@@ -1,0 +1,634 @@
+"use client";
+
+import {
+useEffect,
+useState,
+} from "react";
+
+import {
+AlertCircle,
+Loader2,
+MessageCircle,
+Sprout,
+UserRoundCheck,
+} from "lucide-react";
+
+import {
+useRouter,
+} from "next/navigation";
+
+import {
+AgriculturalistPublic,
+getAvailableAgriculturalists,
+} from "@/services/agriculturalist";
+
+export default function AgriculturalistChoosePage() {
+
+
+const router = useRouter();
+
+const [
+    agriculturalists,
+    setAgriculturalists,
+] = useState<AgriculturalistPublic[]>([]);
+
+const [
+    loading,
+    setLoading,
+] = useState(true);
+
+const [
+    error,
+    setError,
+] = useState("");
+
+// ========================================================
+// LOAD AVAILABLE AGRICULTURALISTS
+// ========================================================
+
+useEffect(() => {
+
+    let active = true;
+
+    const loadAgriculturalists =
+        async () => {
+
+            try {
+
+                setLoading(true);
+                setError("");
+
+                const response =
+                    await getAvailableAgriculturalists();
+
+                if (!active) {
+                    return;
+                }
+
+                if (!response.success) {
+
+                    setError(
+                        response.message ||
+                        "Unable to load agriculturalists."
+                    );
+
+                    setAgriculturalists([]);
+
+                    return;
+                }
+
+                setAgriculturalists(
+                    response.agriculturalists || []
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "AGRICULTURALIST CHOOSER ERROR:",
+                    error
+                );
+
+                if (!active) {
+                    return;
+                }
+
+                setError(
+                    "Unable to connect to the agriculturalist service."
+                );
+
+                setAgriculturalists([]);
+
+            } finally {
+
+                if (active) {
+                    setLoading(false);
+                }
+            }
+        };
+
+    loadAgriculturalists();
+
+    return () => {
+        active = false;
+    };
+
+}, []);
+
+// ========================================================
+// OPEN CHAT
+// ========================================================
+
+const openChat =
+    (
+        agriculturalist:
+            AgriculturalistPublic
+    ) => {
+
+        const id =
+            agriculturalist.id ||
+            agriculturalist._id;
+
+        if (!id) {
+
+            setError(
+                "This agriculturalist does not have a valid ID."
+            );
+
+            return;
+        }
+
+        router.push(
+            `/agriculturalist/chat/${encodeURIComponent(id)}`
+        );
+    };
+
+// ========================================================
+// LOADING
+// ========================================================
+
+if (loading) {
+
+    return (
+
+        <main
+            className="
+                flex
+                min-h-screen
+                items-center
+                justify-center
+                bg-slate-50
+            "
+        >
+
+            <div
+                className="
+                    text-center
+                "
+            >
+
+                <Loader2
+                    size={38}
+                    className="
+                        mx-auto
+                        animate-spin
+                        text-emerald-600
+                    "
+                />
+
+                <p
+                    className="
+                        mt-4
+                        text-sm
+                        text-slate-500
+                    "
+                >
+                    Loading agriculturalists...
+                </p>
+
+            </div>
+
+        </main>
+    );
+}
+
+return (
+
+    <main
+        className="
+            min-h-screen
+            bg-slate-50
+            px-4
+            py-10
+            md:px-8
+        "
+    >
+
+        <div
+            className="
+                mx-auto
+                max-w-7xl
+            "
+        >
+
+            {/* HEADER */}
+
+            <div
+                className="
+                    mb-8
+                "
+            >
+
+                <div
+                    className="
+                        inline-flex
+                        items-center
+                        gap-2
+                        rounded-full
+                        border
+                        border-emerald-200
+                        bg-emerald-50
+                        px-5
+                        py-2.5
+                        text-sm
+                        font-semibold
+                        text-emerald-700
+                    "
+                >
+
+                    <Sprout
+                        size={18}
+                    />
+
+                    Expert Agricultural Support
+
+                </div>
+
+                <h1
+                    className="
+                        mt-6
+                        text-4xl
+                        font-bold
+                        tracking-tight
+                        text-slate-900
+                        md:text-5xl
+                    "
+                >
+                    Chat with an Agriculturalist
+                </h1>
+
+                <p
+                    className="
+                        mt-4
+                        max-w-3xl
+                        text-base
+                        leading-7
+                        text-slate-500
+                        md:text-lg
+                    "
+                >
+                    Connect with an agricultural expert
+                    and get guidance about your crops,
+                    farming conditions, and yield
+                    predictions.
+                </p>
+
+            </div>
+
+            {/* ERROR */}
+
+            {error && (
+
+                <div
+                    className="
+                        mb-6
+                        flex
+                        items-start
+                        gap-3
+                        rounded-2xl
+                        border
+                        border-red-200
+                        bg-red-50
+                        px-5
+                        py-4
+                        text-sm
+                        text-red-700
+                    "
+                >
+
+                    <AlertCircle
+                        size={20}
+                        className="shrink-0"
+                    />
+
+                    <div>
+
+                        <p
+                            className="
+                                font-semibold
+                            "
+                        >
+                            Unable to load agriculturalists
+                        </p>
+
+                        <p
+                            className="
+                                mt-1
+                            "
+                        >
+                            {error}
+                        </p>
+
+                    </div>
+
+                </div>
+            )}
+
+            {/* EMPTY */}
+
+            {agriculturalists.length === 0 ? (
+
+                <section
+                    className="
+                        flex
+                        min-h-[430px]
+                        flex-col
+                        items-center
+                        justify-center
+                        rounded-3xl
+                        border
+                        border-slate-200
+                        bg-white
+                        px-6
+                        py-16
+                        text-center
+                        shadow-sm
+                    "
+                >
+
+                    <div
+                        className="
+                            flex
+                            h-20
+                            w-20
+                            items-center
+                            justify-center
+                            rounded-2xl
+                            bg-emerald-100
+                            text-emerald-700
+                        "
+                    >
+
+                        <UserRoundCheck
+                            size={36}
+                        />
+
+                    </div>
+
+                    <h2
+                        className="
+                            mt-6
+                            text-xl
+                            font-bold
+                            text-slate-900
+                        "
+                    >
+                        No agriculturalists available
+                    </h2>
+
+                    <p
+                        className="
+                            mt-2
+                            max-w-lg
+                            text-sm
+                            leading-6
+                            text-slate-500
+                        "
+                    >
+                        {error ||
+                            "There are currently no agricultural experts available for consultation."
+                        }
+                    </p>
+
+                </section>
+
+            ) : (
+
+                <section
+                    className="
+                        grid
+                        gap-5
+                        sm:grid-cols-2
+                        lg:grid-cols-3
+                    "
+                >
+
+                    {agriculturalists.map(
+                        (
+                            agriculturalist,
+                            index
+                        ) => {
+
+                            const id =
+                                agriculturalist.id ||
+                                agriculturalist._id ||
+                                `agriculturalist-${index}`;
+
+                            const unavailable =
+                                agriculturalist.is_available ===
+                                false;
+
+                            return (
+
+                                <article
+                                    key={id}
+                                    className="
+                                        rounded-3xl
+                                        border
+                                        border-slate-200
+                                        bg-white
+                                        p-6
+                                        shadow-sm
+                                        transition
+                                        hover:-translate-y-1
+                                        hover:shadow-md
+                                    "
+                                >
+
+                                    <div
+                                        className="
+                                            flex
+                                            h-14
+                                            w-14
+                                            items-center
+                                            justify-center
+                                            rounded-2xl
+                                            bg-emerald-100
+                                            text-emerald-700
+                                        "
+                                    >
+
+                                        <UserRoundCheck
+                                            size={25}
+                                        />
+
+                                    </div>
+
+                                    <h2
+                                        className="
+                                            mt-5
+                                            text-xl
+                                            font-bold
+                                            text-slate-900
+                                        "
+                                    >
+                                        {
+                                            agriculturalist.name ||
+                                            "Agricultural Expert"
+                                        }
+                                    </h2>
+
+                                    <p
+                                        className="
+                                            mt-2
+                                            text-sm
+                                            font-medium
+                                            text-emerald-600
+                                        "
+                                    >
+                                        {
+                                            agriculturalist.specialization ||
+                                            "Agriculturalist"
+                                        }
+                                    </p>
+
+                                    <div
+                                        className="
+                                            mt-5
+                                            space-y-2
+                                            text-sm
+                                            text-slate-500
+                                        "
+                                    >
+
+                                        {agriculturalist.qualification && (
+
+                                            <p>
+                                                <span
+                                                    className="
+                                                        font-medium
+                                                        text-slate-700
+                                                    "
+                                                >
+                                                    Qualification:
+                                                </span>{" "}
+                                                {
+                                                    agriculturalist.qualification
+                                                }
+                                            </p>
+                                        )}
+
+                                        {agriculturalist.experience !==
+                                            undefined && (
+
+                                            <p>
+                                                <span
+                                                    className="
+                                                        font-medium
+                                                        text-slate-700
+                                                    "
+                                                >
+                                                    Experience:
+                                                </span>{" "}
+                                                {
+                                                    agriculturalist.experience
+                                                } years
+                                            </p>
+                                        )}
+
+                                        {agriculturalist.location && (
+
+                                            <p>
+                                                <span
+                                                    className="
+                                                        font-medium
+                                                        text-slate-700
+                                                    "
+                                                >
+                                                    Location:
+                                                </span>{" "}
+                                                {
+                                                    agriculturalist.location
+                                                }
+                                            </p>
+                                        )}
+
+                                    </div>
+
+                                    <div
+                                        className="
+                                            mt-5
+                                            flex
+                                            items-center
+                                            gap-2
+                                        "
+                                    >
+
+                                        <span
+                                            className={`
+                                                h-2.5
+                                                w-2.5
+                                                rounded-full
+                                                ${
+                                                    unavailable
+                                                        ? "bg-slate-400"
+                                                        : "bg-emerald-500"
+                                                }
+                                            `}
+                                        />
+
+                                        <span
+                                            className="
+                                                text-xs
+                                                font-medium
+                                                text-slate-500
+                                            "
+                                        >
+                                            {unavailable
+                                                ? "Currently unavailable"
+                                                : "Available for consultation"
+                                            }
+                                        </span>
+
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            openChat(
+                                                agriculturalist
+                                            )
+                                        }
+                                        disabled={unavailable}
+                                        className="
+                                            mt-6
+                                            flex
+                                            w-full
+                                            items-center
+                                            justify-center
+                                            gap-2
+                                            rounded-2xl
+                                            bg-emerald-600
+                                            px-4
+                                            py-3
+                                            text-sm
+                                            font-semibold
+                                            text-white
+                                            transition
+                                            hover:bg-emerald-700
+                                            disabled:cursor-not-allowed
+                                            disabled:bg-slate-300
+                                        "
+                                    >
+
+                                        <MessageCircle
+                                            size={18}
+                                        />
+
+                                        Start Conversation
+
+                                    </button>
+
+                                </article>
+                            );
+                        }
+                    )}
+
+                </section>
+            )}
+
+        </div>
+
+    </main>
+);
+
+}

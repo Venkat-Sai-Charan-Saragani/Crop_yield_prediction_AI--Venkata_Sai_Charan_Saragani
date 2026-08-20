@@ -1,57 +1,136 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import JWTError, jwt
 from bson import ObjectId
 
-from backend.app.utils.jwt import SECRET_KEY, ALGORITHM
-from backend.app.database.mongodb import user_collections
+from backend.app.utils.jwt import verify_token
+from backend.app.database.mongodb import get_database
 
 
-security = HTTPBearer()
+# ============================================================
+# HTTP BEARER
+# ============================================================
+
+security = HTTPBearer(
+    auto_error=True
+)
 
 
+# ============================================================
+# DATABASE
+# ============================================================
+
+db = get_database()
+
+user_collection = db["users"]
+
+
+# ============================================================
+# GET CURRENT USER
+# ============================================================
 
 def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security)
+    credentials: HTTPAuthorizationCredentials = Depends(
+        security
+    )
 ):
+
+    # --------------------------------------------------------
+    # Get JWT token
+    # --------------------------------------------------------
 
     token = credentials.credentials
 
-    try:
-        payload = jwt.decode(
-            token,
-            SECRET_KEY,
-            algorithms=[ALGORITHM]
-        )
 
-        user_id = payload.get("user_id")
+    # --------------------------------------------------------
+    # Verify JWT
+    # --------------------------------------------------------
 
-        if user_id is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid token"
-            )
+    payload = verify_token(token)
 
-    except JWTError:
+    if payload is None:
 
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token"
+            detail="Invalid token",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            }
         )
 
 
-    user = user_collections.find_one(
+    # --------------------------------------------------------
+    # Get user ID from JWT
+    #
+    # IMPORTANT:
+    # JWT must contain:
+    #
+    # {
+    #     "sub": "<mongodb-user-id>"
+    # }
+    # --------------------------------------------------------
+
+    user_id = payload.get("sub")
+
+
+    if not user_id:
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: missing user ID",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            }
+        )
+
+
+    # --------------------------------------------------------
+    # Validate MongoDB ObjectId
+    # --------------------------------------------------------
+
+    if not ObjectId.is_valid(user_id):
+
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token: invalid user ID",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            }
+        )
+
+
+    # --------------------------------------------------------
+    # Find user
+    # --------------------------------------------------------
+
+    current_user = user_collection.find_one(
         {
             "_id": ObjectId(user_id)
         }
     )
 
 
-    if user is None:
+    if not current_user:
+
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="User not found"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={
+                "WWW-Authenticate": "Bearer"
+            }
         )
 
 
-    return user
+    # --------------------------------------------------------
+    # Convert ObjectId to string
+    # --------------------------------------------------------
+
+    current_user["_id"] = str(
+        current_user["_id"]
+    )
+
+
+    # --------------------------------------------------------
+    # Return current user
+    # --------------------------------------------------------
+
+    return current_user

@@ -1,24 +1,88 @@
-from fastapi import APIRouter
+# ============================================================
+# PREDICTION ROUTES
+# backend/app/routes/prediction_routes.py
+# ============================================================
 
-from backend.app.ml.predictor import predict_yield
-from backend.app.schemas.prediction_schema import PredictionRequest
+from fastapi import (
+    APIRouter,
+    Depends,
+)
+
+from backend.app.schemas.prediction_schema import (
+    PredictionRequest
+)
+
+from backend.app.services.prediction_service import (
+    generate_prediction,
+    get_prediction_options,
+)
+
+from backend.app.auth.dependencies import (
+    get_current_user
+)
+
+from backend.app.services.prediction_history_service import (
+    get_prediction_history
+)
 
 
 router = APIRouter(
     prefix="/prediction",
-    tags=["prediction"]
+    tags=["Prediction"],
 )
 
 
-@router.post("/predict")
-def predict(data: PredictionRequest):
+# ============================================================
+# OPTIONS
+# ============================================================
 
-    result = predict_yield(
-        data.model_dump()
+@router.get("/options")
+def prediction_options():
+
+    return get_prediction_options()
+
+
+# ============================================================
+# PREDICT
+# ============================================================
+
+@router.post("/predict")
+def predict(
+
+    data: PredictionRequest,
+
+    current_user=Depends(
+        get_current_user
+    ),
+
+):
+
+    return generate_prediction(
+
+        data.model_dump(),
+
+        current_user,
+
     )
 
-    return {
-    "success": True,
-    "message": "Prediction generated successfully",
-    "predicted_yield": round(float(result),2)
-}
+
+# ============================================================
+# HISTORY
+# ============================================================
+
+@router.get("/history")
+def prediction_history(
+
+    current_user=Depends(
+        get_current_user
+    ),
+
+):
+
+    return get_prediction_history(
+
+        str(
+            current_user["_id"]
+        )
+
+    )

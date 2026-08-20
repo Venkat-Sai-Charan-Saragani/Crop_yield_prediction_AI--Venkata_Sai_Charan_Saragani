@@ -4,4 +4,4 @@ router = APIRouter()
 
 @router.get("/")
 def home():
-     return {"message" : "Welcome to AI - Crop Yield Prediction System"}
+     return {"message" : "Welcome to AI - Crop_Yield_Prediction_System"}

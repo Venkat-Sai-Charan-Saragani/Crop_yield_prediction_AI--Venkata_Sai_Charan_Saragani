@@ -29,3 +29,5 @@ python-multipart
 
 google-auth
 email-validator==2.3.0
+
+requests

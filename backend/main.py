@@ -1,6 +1,6 @@
 # ============================================================
 # MAIN FASTAPI APPLICATION
-# backend/app/main.py
+# backend/main.py
 # ============================================================
 
 from fastapi import FastAPI
@@ -75,11 +75,14 @@ from backend.app.routes.message_routes import (
     router as message_router
 )
 
-from backend.app.routes.analytics_routes import(
+from backend.app.routes.analytics_routes import (
     router as analytics_router
 )
 
-from backend.app.routes.soil_routes import router as soil_router
+from backend.app.routes.soil_routes import (
+    router as soil_router
+)
+
 
 # ============================================================
 # FASTAPI APPLICATION
@@ -113,24 +116,19 @@ app.mount(
 # CORS CONFIGURATION
 # ============================================================
 
-# IMPORTANT:
-#
-# Next.js can run using:
-#
-# http://localhost:3000
-#
-# or
-#
-# http://127.0.0.1:3000
-#
-# Therefore both are allowed.
-
 app.add_middleware(
     CORSMiddleware,
 
     allow_origins=[
+        # Local development
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+
+        # Vercel production frontend
+        "https://frontend-amber-sigma-71.vercel.app",
+
+        # Vercel deployment URL
+        "https://frontend-dcred7a9d-venkat-c45d.vercel.app",
     ],
 
     allow_credentials=True,

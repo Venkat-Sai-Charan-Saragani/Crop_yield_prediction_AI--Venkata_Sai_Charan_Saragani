@@ -1,22 +1,18 @@
-from fastapi import APIRouter, Depends, UploadFile, File
+
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from bson import ObjectId
 from pydantic import BaseModel
 from typing import Optional
-
-import os
-import shutil
-
+import base64
 
 from backend.app.database.mongodb import get_database
 from backend.app.auth.dependencies import get_current_user
-
 
 
 router = APIRouter(
     prefix="/profile",
     tags=["Profile"]
 )
-
 
 
 # -----------------------------
@@ -38,9 +34,6 @@ class ProfileUpdate(BaseModel):
     profile_image: Optional[str] = None
 
 
-
-
-
 # -----------------------------
 # Get Profile
 # -----------------------------
@@ -52,11 +45,9 @@ def get_profile(
 
     db = get_database()
 
-
     user_id = ObjectId(
         str(current_user["_id"])
     )
-
 
     farms = db["farms"].count_documents(
         {
@@ -64,13 +55,11 @@ def get_profile(
         }
     )
 
-
     crops = db["crops"].count_documents(
         {
             "user_id": user_id
         }
     )
-
 
     predictions = db["predictions"].count_documents(
         {
@@ -78,72 +67,57 @@ def get_profile(
         }
     )
 
-
     return {
 
         "success": True,
 
-
         "profile": {
-
 
             "name": current_user.get(
                 "full_name",
                 "User"
             ),
 
-
             "email": current_user.get(
                 "email",
                 ""
             ),
-
 
             "phone": current_user.get(
                 "phone",
                 ""
             ),
 
-
             "location": current_user.get(
                 "location",
                 ""
             ),
-
 
             "farm_name": current_user.get(
                 "farm_name",
                 ""
             ),
 
-
             "profile_image": current_user.get(
                 "profile_image",
                 ""
             ),
 
-
             "role": "AI User",
 
+            "stats": {
 
-            "stats":{
+                "farms": farms,
 
-                "farms":farms,
+                "crops": crops,
 
-                "crops":crops,
-
-                "predictions":predictions
+                "predictions": predictions
 
             }
 
         }
 
     }
-
-
-
-
-
 
 
 # -----------------------------
@@ -151,7 +125,7 @@ def get_profile(
 # -----------------------------
 
 @router.post("/upload-image")
-def upload_profile_image(
+async def upload_profile_image(
 
     file: UploadFile = File(...),
 
@@ -159,90 +133,123 @@ def upload_profile_image(
 
 ):
 
-
     db = get_database()
-
 
     user_id = ObjectId(
         str(current_user["_id"])
     )
 
+    # -----------------------------
+    # Validate File Type
+    # -----------------------------
 
+    allowed_types = {
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp"
+    }
 
-    upload_folder = "uploads/profile"
+    if file.content_type not in allowed_types:
 
-
-    os.makedirs(
-        upload_folder,
-        exist_ok=True
-    )
-
-
-
-    file_path = (
-
-        f"{upload_folder}/"
-        f"{user_id}_{file.filename}"
-
-    )
-
-
-
-    with open(
-        file_path,
-        "wb"
-    ) as buffer:
-
-
-        shutil.copyfileobj(
-
-            file.file,
-
-            buffer
-
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Only JPG, JPEG, PNG, and WEBP "
+                "images are allowed."
+            )
         )
 
+    # -----------------------------
+    # Read Image
+    # -----------------------------
 
+    image_bytes = await file.read()
 
-    image_url = "/" + file_path
+    # -----------------------------
+    # Validate Empty File
+    # -----------------------------
 
+    if len(image_bytes) == 0:
 
+        raise HTTPException(
+            status_code=400,
+            detail="The uploaded image is empty."
+        )
 
-    db["users"].update_one(
+    # -----------------------------
+    # Validate File Size
+    # Maximum 2 MB
+    # -----------------------------
+
+    max_size = 2 * 1024 * 1024
+
+    if len(image_bytes) > max_size:
+
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Profile image must be smaller "
+                "than 2 MB."
+            )
+        )
+
+    # -----------------------------
+    # Convert Image to Base64
+    # -----------------------------
+
+    encoded_image = base64.b64encode(
+        image_bytes
+    ).decode("utf-8")
+
+    image_url = (
+        f"data:{file.content_type};base64,"
+        f"{encoded_image}"
+    )
+
+    # -----------------------------
+    # Store Image in MongoDB
+    # -----------------------------
+
+    result = db["users"].update_one(
 
         {
-            "_id":user_id
+            "_id": user_id
         },
 
         {
-
-            "$set":{
-
-                "profile_image":image_url
-
+            "$set": {
+                "profile_image": image_url
             }
-
         }
 
     )
 
+    # -----------------------------
+    # Verify User
+    # -----------------------------
 
+    if result.matched_count == 0:
+
+        raise HTTPException(
+            status_code=404,
+            detail="User not found."
+        )
+
+    # -----------------------------
+    # Return Response
+    # -----------------------------
 
     return {
 
+        "success": True,
 
-        "success":True,
+        "message":
+        "Profile image uploaded successfully.",
 
-
-        "image_url":image_url
-
+        "image_url": image_url
 
     }
-
-
-
-
-
 
 
 # -----------------------------
@@ -258,66 +265,43 @@ def update_profile(
 
 ):
 
-
     db = get_database()
 
-
-
     user_id = ObjectId(
-
         str(current_user["_id"])
-
     )
-
-
 
     update_data = data.dict(
-
         exclude_none=True
-
     )
 
-
-
-    if len(update_data)==0:
-
+    if len(update_data) == 0:
 
         return {
 
-            "success":False,
+            "success": False,
 
-            "message":"No data provided"
+            "message": "No data provided"
 
         }
-
-
-
 
     db["users"].update_one(
 
         {
-
-            "_id":user_id
-
+            "_id": user_id
         },
 
         {
-
-            "$set":update_data
-
+            "$set": update_data
         }
 
     )
 
-
-
     return {
 
-
-        "success":True,
+        "success": True,
 
         "message":
         "Profile updated successfully"
-
 
     }
